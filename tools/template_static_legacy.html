@@ -1,0 +1,512 @@
+<title>심혈관·대사 청구 대시보드</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: 상단 필터 바 → 핵심 지표 → 추이 → 성분 → 지역·기관 → 환자 프로필. 카드는 섹션 단위로만 사용 */
+:root {
+  --bg: #f1f3f4;
+  --surface: #fcfcfb;
+  --ink: #14181a;
+  --ink-2: #4c5558;
+  --ink-3: #6f787b;
+  --line: #dde2e4;
+  --grid: #e8ecee;
+  --neutral: #5d6b72;
+  --accent: #1f6f78;
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s3: #1baf7a;
+  --good: #1a7f4b;
+  --bad: #c23b3b;
+  --font: "IBM Plex Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111415;
+    --surface: #1a1d1e;
+    --ink: #eceeed;
+    --ink-2: #b9c0c2;
+    --ink-3: #8d9699;
+    --line: #2b3133;
+    --grid: #262b2d;
+    --neutral: #8fa0a8;
+    --accent: #5bc0c8;
+    --s1: #3987e5;
+    --s2: #d95926;
+    --s3: #199e70;
+    --good: #4cc38a;
+    --bad: #ee7a7a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111415;
+  --surface: #1a1d1e;
+  --ink: #eceeed;
+  --ink-2: #b9c0c2;
+  --ink-3: #8d9699;
+  --line: #2b3133;
+  --grid: #262b2d;
+  --neutral: #8fa0a8;
+  --accent: #5bc0c8;
+  --s1: #3987e5;
+  --s2: #d95926;
+  --s3: #199e70;
+  --good: #4cc38a;
+  --bad: #ee7a7a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+  font-variant-numeric: tabular-nums;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+h1 { font-size: 22px; font-weight: 700; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-size: 15px; font-weight: 600; margin: 0; }
+p { margin: 0; }
+.sub { color: var(--ink-3); font-size: 12.5px; }
+header { display: flex; flex-wrap: wrap; gap: 4px 24px; align-items: baseline; justify-content: space-between; }
+.eyebrow { font-size: 11.5px; letter-spacing: 0.08em; color: var(--accent); font-weight: 600; text-transform: uppercase; }
+
+/* filters */
+@media (min-width: 900px) { .filters { position: sticky; top: env(safe-area-inset-top, 0px); } }
+.filters { z-index: 5; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+.fgroup { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.flabel { font-size: 11.5px; color: var(--ink-3); letter-spacing: 0.04em; }
+.chip { font: inherit; font-size: 13px; padding: 5px 11px 5px 9px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.chip i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); display: inline-block; }
+.chip[aria-pressed="false"] { opacity: .55; }
+.chip[aria-pressed="false"] i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--c); }
+.chip[aria-pressed="true"] { color: var(--ink); border-color: var(--c); }
+select, .seg button { font: inherit; font-size: 13px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; max-width: 100%; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: transparent; color: var(--ink-2); cursor: pointer; padding: 5px 11px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+:is(button, select):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.reset { font: inherit; font-size: 12.5px; color: var(--accent); background: none; border: 0; cursor: pointer; padding: 4px; margin-left: auto; }
+
+/* kpi */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.kpi .k { font-size: 12px; color: var(--ink-3); }
+.kpi .v { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+.kpi .v small { font-size: 13px; font-weight: 500; color: var(--ink-2); margin-left: 2px; }
+.kpi .d { font-size: 12px; color: var(--ink-3); }
+.up { color: var(--good); } .down { color: var(--bad); }
+
+/* insights */
+.insights { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; display: grid; gap: 6px; }
+.insights ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; color: var(--ink-2); }
+.insights b { color: var(--ink); font-weight: 600; }
+
+/* panels */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.phead { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; align-items: baseline; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 860px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
+
+/* line chart */
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { font-family: var(--font); fill: var(--ink-3); font-size: 11px; }
+
+/* bar rows */
+.bars { display: flex; flex-direction: column; gap: 7px; }
+.brow { display: grid; grid-template-columns: minmax(84px, 148px) minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 13px; }
+.brow .nm { color: var(--ink); line-height: 1.3; overflow-wrap: anywhere; }
+.brow .nm small { color: var(--ink-3); display: block; font-size: 11.5px; }
+.track { display: flex; gap: 2px; height: 16px; min-width: 0; }
+.seg-b { height: 100%; background: var(--c); border-radius: 0 4px 4px 0; min-width: 2px; }
+.seg-b:first-child { border-radius: 0 4px 4px 0; }
+.track.single .seg-b { background: var(--neutral); }
+.bval { text-align: right; white-space: nowrap; font-size: 12.5px; color: var(--ink-2); min-width: 96px; }
+.bval b { color: var(--ink); font-weight: 600; }
+.hdr { display: grid; grid-template-columns: minmax(78px, 112px) minmax(0, 1fr) auto; gap: 10px; font-size: 11.5px; color: var(--ink-3); }
+.hdr span:last-child { min-width: 96px; text-align: right; }
+[data-tip] { cursor: default; }
+.brow:hover .nm { text-decoration: underline dotted; }
+
+/* tables */
+.twrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th { text-align: left; font-weight: 500; color: var(--ink-3); font-size: 11.5px; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 7px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th.n, td.n { text-align: right; }
+tr:last-child td { border-bottom: 0; }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
+.pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.cum { display: inline-block; width: 44px; height: 5px; background: var(--grid); border-radius: 3px; vertical-align: middle; margin-right: 6px; position: relative; overflow: hidden; }
+.cum span { position: absolute; inset: 0 auto 0 0; background: var(--neutral); }
+.empty { color: var(--ink-3); padding: 24px 0; text-align: center; }
+.foot { color: var(--ink-3); font-size: 12px; line-height: 1.6; }
+
+#tip { position: fixed; z-index: 20; pointer-events: none; background: var(--ink); color: var(--surface); font-size: 12px; line-height: 1.5; padding: 7px 10px; border-radius: 6px; max-width: 260px; opacity: 0; transition: opacity .08s; }
+#tip b { font-weight: 600; }
+#tip .r { display: flex; gap: 8px; justify-content: space-between; }
+#tip .r span:first-child { display: inline-flex; align-items: center; gap: 5px; }
+#tip i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: var(--c); }
+@media (prefers-reduced-motion: reduce) { #tip { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Claims Insight · 2024.01 – 2025.12</div>
+      <h1>심혈관·대사질환 청구 현황</h1>
+    </div>
+    <p class="sub" id="scope"></p>
+  </header>
+
+  <section class="filters" aria-label="필터">
+    <div class="fgroup" id="grpChips"><span class="flabel">질환군</span></div>
+    <div class="fgroup"><label class="flabel" for="fPeriod">기간</label>
+      <select id="fPeriod"><option value="all">전체 (24개월)</option><option value="0">2024년</option><option value="1">2025년</option></select></div>
+    <div class="fgroup"><label class="flabel" for="fSido">환자 거주지</label><select id="fSido"></select></div>
+    <div class="fgroup"><label class="flabel" for="fCl">기관 종별</label><select id="fCl"></select></div>
+    <div class="fgroup"><label class="flabel" for="fSex">성별</label>
+      <select id="fSex"><option value="all">전체</option><option value="1">남</option><option value="2">여</option></select></div>
+    <div class="fgroup"><label class="flabel" for="fAge">연령대</label><select id="fAge"></select></div>
+    <div class="fgroup"><span class="flabel">기준</span>
+      <div class="seg" role="group" aria-label="집계 기준"><button id="mAmt" aria-pressed="true">진료비</button><button id="mCnt" aria-pressed="false">청구 건수</button></div></div>
+    <button class="reset" id="reset">필터 초기화</button>
+  </section>
+
+  <section class="kpis" id="kpis" aria-label="핵심 지표"></section>
+  <section class="insights" aria-label="핵심 포인트"><h2>핵심 포인트</h2><ul id="insights"></ul></section>
+
+  <section class="panel">
+    <div class="phead"><h2 id="trendTitle">월별 추이</h2><span class="sub">주상병 기준 · 진료 시작일(recu_fr_dd)의 월</span></div>
+    <div class="chart" id="trend" role="img" aria-label="월별 진료비 추이 선 그래프"></div>
+  </section>
+
+  <div class="grid2">
+    <section class="panel">
+      <div class="phead"><h2>상병별 규모</h2><span class="sub">주상병 코드 기준</span></div>
+      <div id="sickBars"></div>
+    </section>
+    <section class="panel">
+      <div class="phead"><h2>처방 성분 순위</h2><span class="sub">원외·원내 처방 라인의 금액 합</span></div>
+      <div id="ingBars"></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="phead"><h2>환자 거주 지역별</h2><span class="sub">막대는 질환군별 구성 · 오른쪽은 환자당 진료비</span></div>
+    <div id="sidoBars"></div>
+  </section>
+
+  <div class="grid2">
+    <section class="panel">
+      <div class="phead"><h2>기관 종별</h2><span class="sub">어디서 진료받는가</span></div>
+      <div id="clBars"></div>
+      <div class="phead" style="margin-top:6px"><h2>기관 소재 권역</h2></div>
+      <div id="regBars"></div>
+    </section>
+    <section class="panel">
+      <div class="phead"><h2>환자 프로필</h2><span class="sub">연령대 · 성별 · 소득 5분위 · 보험 유형</span></div>
+      <div id="profile"></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="phead"><h2>상위 기관 10곳</h2><span class="sub" id="topNote"></span></div>
+    <div class="twrap" id="topInst"></div>
+  </section>
+
+  <p class="foot">
+    대상: 주상병이 I10(고혈압) · E11(2형 당뇨) · E78(이상지질혈증)로 시작하는 청구.
+    진료비는 요양급여비용 총액(rvd_rpe_tamt_amt)이며 본인부담금과 보험자부담금을 합한 금액입니다.
+    환자 수는 필터 조건에 맞는 고유 환자(jid)이고, 같은 환자가 여러 질환군에 걸치면 질환군별 행에서는 각각 세어지므로 합이 전체와 다를 수 있습니다.
+    기관은 식별번호만 제공되어 기관명은 표시하지 않습니다.
+  </p>
+</div>
+<div id="tip" role="tooltip"></div>
+
+<script>
+const DATA = __DATA__;
+(function () {
+  const COLORS = ["var(--s1)", "var(--s2)", "var(--s3)"];
+  const D = DATA, C = {}; D.cols.forEach((c, i) => C[c] = i);
+  const rows = D.rows, rx = D.rx;
+  const $ = id => document.getElementById(id);
+  const st = { grp: [true, true, true], period: "all", sido: "all", cl: "all", sex: "all", age: "all", m: "amt" };
+
+  /* ---------- formatting ---------- */
+  const nf = n => Math.round(n).toLocaleString("ko-KR");
+  function won(v) {
+    const a = Math.abs(v);
+    if (a >= 1e8) return (v / 1e8).toFixed(a >= 1e9 ? 1 : 2) + "억원";
+    if (a >= 1e4) return nf(v / 1e4) + "만원";
+    return nf(v) + "원";
+  }
+  const pct = (a, b) => b ? (a / b * 100).toFixed(1) + "%" : "-";
+  const mval = r => st.m === "amt" ? r[C.amt] : 1;
+  const mfmt = v => st.m === "amt" ? won(v) : nf(v) + "건";
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  /* ---------- filter controls ---------- */
+  const chips = $("grpChips");
+  D.groups.forEach((g, i) => {
+    const b = document.createElement("button");
+    b.className = "chip"; b.style.setProperty("--c", COLORS[i]); b.setAttribute("aria-pressed", "true");
+    b.innerHTML = `<i></i>${esc(g.name)} <span class="sub">${g.code}</span>`;
+    b.onclick = () => {
+      st.grp[i] = !st.grp[i];
+      if (!st.grp.some(Boolean)) st.grp[i] = true;
+      render();
+    };
+    chips.appendChild(b);
+  });
+  $("fSido").innerHTML = `<option value="all">전체 시도</option>` + D.sido.map((s, i) => `<option value="${i}">${esc(s.name)}</option>`).join("");
+  $("fCl").innerHTML = `<option value="all">전체</option>` + D.cl.map((c, i) => `<option value="${i}">${esc(c.name)}</option>`).join("");
+  $("fAge").innerHTML = `<option value="all">전체</option>` + D.ageBands.map((a, i) => `<option value="${i}">${a}</option>`).join("");
+  [["fPeriod", "period"], ["fSido", "sido"], ["fCl", "cl"], ["fSex", "sex"], ["fAge", "age"]].forEach(([id, k]) => {
+    $(id).onchange = e => { st[k] = e.target.value; render(); };
+  });
+  $("mAmt").onclick = () => { st.m = "amt"; render(); };
+  $("mCnt").onclick = () => { st.m = "cnt"; render(); };
+  $("reset").onclick = () => {
+    Object.assign(st, { grp: [true, true, true], period: "all", sido: "all", cl: "all", sex: "all", age: "all" });
+    ["fPeriod", "fSido", "fCl", "fSex", "fAge"].forEach(id => $(id).value = "all");
+    render();
+  };
+
+  function pass(r, ignorePeriod) {
+    if (!st.grp[r[C.grp]]) return false;
+    if (!ignorePeriod && st.period !== "all" && Math.floor(r[C.mon] / 12) !== +st.period) return false;
+    if (st.sido !== "all" && r[C.sido] !== +st.sido) return false;
+    if (st.cl !== "all" && r[C.cl] !== +st.cl) return false;
+    if (st.sex !== "all" && r[C.sex] !== +st.sex) return false;
+    if (st.age !== "all" && r[C.age] !== +st.age) return false;
+    return true;
+  }
+
+  /* ---------- tooltip ---------- */
+  const tip = $("tip");
+  function showTip(html, x, y) {
+    tip.innerHTML = html; tip.style.opacity = 1;
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    let L = x + 14, T = y + 14;
+    if (L + w > innerWidth - 8) L = x - w - 14;
+    if (T + h > innerHeight - 8) T = y - h - 14;
+    tip.style.left = Math.max(8, L) + "px"; tip.style.top = Math.max(8, T) + "px";
+  }
+  const hideTip = () => tip.style.opacity = 0;
+  document.addEventListener("pointermove", e => {
+    const el = e.target.closest && e.target.closest("[data-tip]");
+    if (el) showTip(el.dataset.tip, e.clientX, e.clientY);
+    else if (!e.target.closest || !e.target.closest("#trend")) hideTip();
+  });
+  document.addEventListener("scroll", hideTip, { passive: true });
+
+  /* ---------- aggregation helpers ---------- */
+  function groupBy(list, keyFn) {
+    const m = new Map();
+    list.forEach(r => {
+      const k = keyFn(r);
+      let o = m.get(k);
+      if (!o) { o = { amt: 0, cnt: 0, pts: new Set(), byG: [0, 0, 0], insts: new Set() }; m.set(k, o); }
+      o.amt += r[C.amt]; o.cnt++; o.pts.add(r[C.pt]); o.insts.add(r[C.inst]);
+      o.byG[r[C.grp]] += mval(r);
+    });
+    return m;
+  }
+  const tot = o => st.m === "amt" ? o.amt : o.cnt;
+
+  function stackRows(el, entries, opts) {
+    /* entries: [{name, sub, o}] */
+    if (!entries.length) { el.innerHTML = `<div class="empty">조건에 맞는 데이터가 없습니다</div>`; return; }
+    const max = Math.max(...entries.map(e => tot(e.o)));
+    const grandPts = opts.grand;
+    let html = `<div class="bars">`;
+    entries.forEach(e => {
+      const t = tot(e.o);
+      const w = max ? t / max * 100 : 0;
+      const segs = e.o.byG.map((v, gi) => v > 0 ? `<div class="seg-b" style="--c:${COLORS[gi]};flex:${v} 1 0"></div>` : "").join("");
+      const tipRows = e.o.byG.map((v, gi) => v > 0 && st.grp[gi] ? `<div class="r"><span><i style="--c:${COLORS[gi]}"></i>${esc(D.groups[gi].name)}</span><span>${mfmt(v)}</span></div>` : "").join("");
+      const tp = `<b>${esc(e.name)}</b><div class="r"><span>진료비</span><span>${won(e.o.amt)}</span></div><div class="r"><span>청구 건수</span><span>${nf(e.o.cnt)}건</span></div><div class="r"><span>환자 수</span><span>${nf(e.o.pts.size)}명</span></div><div class="r"><span>환자당 진료비</span><span>${won(e.o.amt / e.o.pts.size)}</span></div><hr style="border:0;border-top:1px solid rgba(128,128,128,.4);margin:4px 0">${tipRows}`;
+      const right = opts.right(e);
+      html += `<div class="brow" data-tip="${esc(tp)}"><div class="nm">${esc(e.name)}${e.sub ? `<small>${esc(e.sub)}</small>` : ""}</div><div style="width:${w}%;min-width:0"><div class="track">${segs}</div></div><div class="bval">${right}</div></div>`;
+    });
+    el.innerHTML = html + `</div>`;
+  }
+
+  /* ---------- trend chart ---------- */
+  let trendData = null;
+  function niceMax(v) {
+    if (v <= 0) return 1;
+    const p = Math.pow(10, Math.floor(Math.log10(v))), f = v / p;
+    return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+  }
+  const monLabel = i => `${String(24 + Math.floor(i / 12)).padStart(2, "0")}.${String(i % 12 + 1).padStart(2, "0")}`;
+  function axisFmt(v) {
+    if (st.m === "cnt") return nf(v);
+    if (v >= 1e8) return (v / 1e8) + "억";
+    if (v >= 1e4) return nf(v / 1e4) + "만";
+    return nf(v);
+  }
+  function drawTrend() {
+    const el = $("trend"), W = Math.max(280, el.clientWidth), H = W < 520 ? 230 : 280;
+    const m = trendData; if (!m) return;
+    const mons = m.mons, n = mons.length;
+    const L = W < 520 ? 44 : 54, R = 14, T = 14, B = 26, iw = W - L - R, ih = H - T - B;
+    const sel = D.groups.map((g, i) => i).filter(i => st.grp[i]);
+    let mx = 0; sel.forEach(g => m.series[g].forEach(v => mx = Math.max(mx, v)));
+    const top = niceMax(mx), x = i => L + (n === 1 ? iw / 2 : i / (n - 1) * iw), y = v => T + ih - v / top * ih;
+    let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true">`;
+    for (let k = 0; k <= 4; k++) {
+      const v = top / 4 * k, yy = y(v);
+      s += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" stroke="var(--grid)" stroke-width="1"/><text x="${L - 8}" y="${yy + 4}" text-anchor="end">${axisFmt(v)}</text>`;
+    }
+    const step = n > 12 ? 3 : 1;
+    mons.forEach((mo, i) => { if (i % step === 0) s += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${monLabel(mo)}</text>`; });
+    sel.forEach(g => {
+      const pts = m.series[g].map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`);
+      s += `<polyline points="${pts.join(" ")}" fill="none" stroke="${COLORS[g]}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+      const li = n - 1; s += `<circle cx="${x(li)}" cy="${y(m.series[g][li])}" r="3.5" fill="${COLORS[g]}" stroke="var(--surface)" stroke-width="2"/>`;
+    });
+    s += `<g id="cross" style="display:none"><line id="cl" y1="${T}" y2="${T + ih}" stroke="var(--ink-3)" stroke-width="1" stroke-dasharray="3 3"/>${sel.map(g => `<circle id="cd${g}" r="4.5" fill="${COLORS[g]}" stroke="var(--surface)" stroke-width="2"/>`).join("")}</g>`;
+    s += `<rect id="hit" x="${L}" y="${T}" width="${iw}" height="${ih}" fill="transparent" style="touch-action:pan-y"/></svg>`;
+    el.innerHTML = s;
+    const hit = el.querySelector("#hit"), cross = el.querySelector("#cross");
+    const move = e => {
+      const r = hit.getBoundingClientRect(), px = (e.clientX - r.left) / r.width;
+      const i = Math.max(0, Math.min(n - 1, Math.round(px * (n - 1))));
+      cross.style.display = "";
+      const cx = x(i); cross.querySelector("#cl").setAttribute("x1", cx); cross.querySelector("#cl").setAttribute("x2", cx);
+      sel.forEach(g => { const c = cross.querySelector("#cd" + g); c.setAttribute("cx", cx); c.setAttribute("cy", y(m.series[g][i])); });
+      const total = sel.reduce((a, g) => a + m.series[g][i], 0);
+      let h = `<b>20${monLabel(mons[i]).replace(".", "년 ")}월</b>` + sel.map(g => `<div class="r"><span><i style="--c:${COLORS[g]}"></i>${esc(D.groups[g].name)}</span><span>${mfmt(m.series[g][i])}</span></div>`).join("");
+      if (sel.length > 1) h += `<div class="r"><span>합계</span><span>${mfmt(total)}</span></div>`;
+      showTip(h, e.clientX, e.clientY);
+    };
+    hit.addEventListener("pointermove", move);
+    hit.addEventListener("pointerdown", move);
+    hit.addEventListener("pointerleave", () => { cross.style.display = "none"; hideTip(); });
+  }
+
+  /* ---------- main render ---------- */
+  function render() {
+    chips.querySelectorAll(".chip").forEach((b, i) => b.setAttribute("aria-pressed", String(st.grp[i])));
+    $("mAmt").setAttribute("aria-pressed", String(st.m === "amt"));
+    $("mCnt").setAttribute("aria-pressed", String(st.m === "cnt"));
+
+    const f = rows.filter(r => pass(r));
+    const ok = new Uint8Array(rows.length);
+    rows.forEach((r, i) => { if (pass(r)) ok[i] = 1; });
+    const pts = new Set(f.map(r => r[C.pt])), insts = new Set(f.map(r => r[C.inst]));
+    const amt = f.reduce((a, r) => a + r[C.amt], 0), ins = f.reduce((a, r) => a + r[C.ins], 0);
+    let rxAmt = 0; const ingMap = new Map();
+    rx.forEach(([ci, ii, a]) => {
+      if (!ok[ci]) return; rxAmt += a;
+      let o = ingMap.get(ii); if (!o) { o = { amt: 0, n: 0, pts: new Set() }; ingMap.set(ii, o); }
+      o.amt += a; o.n++; o.pts.add(rows[ci][C.pt]);
+    });
+
+    $("scope").textContent = `필터 적용 ${nf(f.length)}건 / 전체 ${nf(rows.length)}건`;
+
+    /* YoY */
+    let yoy = "";
+    if (st.period === "all") {
+      let a = 0, b = 0; rows.forEach(r => { if (pass(r, true)) { (r[C.mon] < 12 ? (a += r[C.amt]) : (b += r[C.amt])); } });
+      if (a > 0) { const d = (b - a) / a * 100; yoy = `<span class="${d >= 0 ? "up" : "down"}">${d >= 0 ? "▲" : "▼"} ${Math.abs(d).toFixed(1)}%</span> 2025 vs 2024`; }
+    } else yoy = `${st.period === "0" ? 2024 : 2025}년 합계`;
+    $("kpis").innerHTML = [
+      ["총 진료비", won(amt), yoy || "&nbsp;"],
+      ["청구 건수", `${nf(f.length)}<small>건</small>`, `보험자 부담 ${pct(ins, amt)}`],
+      ["환자 수", `${nf(pts.size)}<small>명</small>`, `환자당 청구 ${pts.size ? (f.length / pts.size).toFixed(1) : "-"}건`],
+      ["건당 진료비", won(f.length ? amt / f.length : 0), `환자당 ${won(pts.size ? amt / pts.size : 0)}`],
+      ["처방 금액", won(rxAmt), `진료비 대비 ${pct(rxAmt, amt)}`],
+      ["청구 기관", `${nf(insts.size)}<small>곳</small>`, `기관당 ${won(insts.size ? amt / insts.size : 0)}`],
+    ].map(k => `<div class="kpi"><span class="k">${k[0]}</span><span class="v">${k[1]}</span><span class="d">${k[2]}</span></div>`).join("");
+
+    /* trend */
+    const monsAll = st.period === "all" ? [...Array(24).keys()] : [...Array(12).keys()].map(i => i + (+st.period) * 12);
+    const series = D.groups.map(() => monsAll.map(() => 0));
+    f.forEach(r => { const i = monsAll.indexOf(r[C.mon]); if (i >= 0) series[r[C.grp]][i] += mval(r); });
+    trendData = { mons: monsAll, series };
+    $("trendTitle").textContent = st.m === "amt" ? "월별 진료비 추이" : "월별 청구 건수 추이";
+    $("trend").setAttribute("aria-label", $("trendTitle").textContent + " 선 그래프");
+    drawTrend();
+
+    /* sick */
+    const bySick = groupBy(f, r => r[C.sick]);
+    const sickE = [...bySick].map(([k, o]) => ({ name: D.sick[k].name, sub: D.sick[k].code, o })).sort((a, b) => tot(b.o) - tot(a.o));
+    stackRows($("sickBars"), sickE, { right: e => `<b>${mfmt(tot(e.o))}</b> · ${pct(tot(e.o), st.m === "amt" ? amt : f.length)}` });
+
+    /* ingredients */
+    const ingE = [...ingMap].map(([k, o]) => ({ i: D.ing[k], ...o })).sort((a, b) => b.amt - a.amt);
+    const imax = ingE.length ? ingE[0].amt : 1;
+    $("ingBars").innerHTML = ingE.length ? `<div class="bars">` + ingE.map(e => {
+      const tp = `<b>${esc(e.i.name)}</b><div class="r"><span>약효군</span><span>${esc(e.i.clsName)}</span></div><div class="r"><span>처방 금액</span><span>${won(e.amt)}</span></div><div class="r"><span>처방 라인</span><span>${nf(e.n)}건</span></div><div class="r"><span>처방 환자</span><span>${nf(e.pts.size)}명</span></div>`;
+      return `<div class="brow" data-tip="${esc(tp)}"><div class="nm" title="${esc(e.i.name)}">${esc(e.i.name)}<small>${esc(e.i.clsName)}</small></div><div style="width:${e.amt / imax * 100}%"><div class="track single"><div class="seg-b" style="flex:1"></div></div></div><div class="bval"><b>${won(e.amt)}</b> · ${pct(e.amt, rxAmt)}</div></div>`;
+    }).join("") + `</div>` : `<div class="empty">처방 내역이 없습니다</div>`;
+
+    /* sido */
+    const bySido = groupBy(f, r => r[C.sido]);
+    const sidoE = [...bySido].map(([k, o]) => ({ name: D.sido[k].name.replace(/특별자치도|특별자치시|특별시|광역시/, ""), sub: D.sido[k].region, o })).sort((a, b) => tot(b.o) - tot(a.o));
+    stackRows($("sidoBars"), sidoE, { right: e => `<b>${mfmt(tot(e.o))}</b> · 환자당 ${won(e.o.amt / e.o.pts.size)}` });
+
+    /* institution class / region */
+    const byCl = groupBy(f, r => r[C.cl]);
+    stackRows($("clBars"), [...byCl].map(([k, o]) => ({ name: D.cl[k].name, o })).sort((a, b) => tot(b.o) - tot(a.o)),
+      { right: e => `<b>${pct(tot(e.o), st.m === "amt" ? amt : f.length)}</b> · ${mfmt(tot(e.o))}` });
+    const byReg = groupBy(f, r => r[C.reg]);
+    stackRows($("regBars"), [...byReg].map(([k, o]) => ({ name: D.regions[k], o })).sort((a, b) => tot(b.o) - tot(a.o)),
+      { right: e => `<b>${pct(tot(e.o), st.m === "amt" ? amt : f.length)}</b> · ${mfmt(tot(e.o))}` });
+
+    /* profile */
+    const blocks = [
+      ["연령대", groupBy(f, r => r[C.age]), k => D.ageBands[k], null, D.ageBands.map((_, i) => i)],
+      ["성별", groupBy(f, r => r[C.sex]), k => k === 1 ? "남" : "여", null, [1, 2]],
+      ["소득 5분위", groupBy(f, r => r[C.quint]), k => D.quint[k] ? `${D.quint[k]}분위` : "미상", null, D.quint.map((_, i) => i).sort((a, b) => (D.quint[a] || 9) - (D.quint[b] || 9))],
+      ["보험 유형", groupBy(f, r => r[C.aid]), k => k ? "의료급여" : "건강보험", null, [0, 1]],
+    ];
+    const pbox = $("profile"); pbox.innerHTML = "";
+    const pmax = Math.max(1, ...blocks.flatMap(b => [...b[1].values()].map(tot)));
+    blocks.forEach(([title, mp, nameFn, , order]) => {
+      const div = document.createElement("div"); div.style.marginBottom = "12px";
+      const es = order.filter(k => mp.has(k)).map(k => ({ name: nameFn(k), o: mp.get(k) }));
+      div.innerHTML = `<div class="flabel" style="margin-bottom:5px">${title}</div>`;
+      const inner = document.createElement("div"); div.appendChild(inner); pbox.appendChild(div);
+      stackRows(inner, es.map(e => ({ ...e })), { right: e => `<b>${nf(e.o.pts.size)}명</b> · ${mfmt(tot(e.o))}` });
+      // 블록 간 같은 눈금을 쓰도록 폭 보정
+      inner.querySelectorAll(".brow > div:nth-child(2)").forEach((c, i) => c.style.width = (tot(es[i].o) / pmax * 100) + "%");
+    });
+
+    /* top institutions */
+    const byInst = groupBy(f, r => r[C.inst]);
+    const instE = [...byInst].sort((a, b) => b[1].amt - a[1].amt);
+    const top = instE.slice(0, 10), topAmt = top.reduce((a, [, o]) => a + o.amt, 0);
+    $("topNote").textContent = f.length ? `전체 ${nf(instE.length)}곳 중 상위 10곳이 진료비의 ${pct(topAmt, amt)}` : "";
+    const instMeta = {}; f.forEach(r => { instMeta[r[C.inst]] = r; });
+    let cum = 0;
+    $("topInst").innerHTML = top.length ? `<table><thead><tr><th>#</th><th>기관 번호</th><th>종별</th><th>권역</th><th>주 질환군</th><th class="n">청구 건수</th><th class="n">환자 수</th><th class="n">진료비</th><th>누적 점유</th></tr></thead><tbody>` +
+      top.map(([k, o], i) => {
+        cum += o.amt; const mr = instMeta[k], g = o.byG.indexOf(Math.max(...o.byG));
+        return `<tr><td>${i + 1}</td><td>${esc(D.yids[k])}</td><td>${D.cl[mr[C.cl]].name}</td><td>${D.regions[mr[C.reg]]}</td><td><span class="pill" style="--c:${COLORS[g]}"><i></i>${esc(D.groups[g].name)}</span></td><td class="n">${nf(o.cnt)}</td><td class="n">${nf(o.pts.size)}</td><td class="n">${won(o.amt)}</td><td><span class="cum"><span style="width:${cum / amt * 100}%"></span></span>${pct(cum, amt)}</td></tr>`;
+      }).join("") + `</tbody></table>` : `<div class="empty">조건에 맞는 기관이 없습니다</div>`;
+
+    /* insights */
+    const gt = D.groups.map((g, i) => ({ g, v: f.reduce((a, r) => a + (r[C.grp] === i ? r[C.amt] : 0), 0) })).sort((a, b) => b.v - a.v);
+    const ins2 = [];
+    if (f.length) {
+      ins2.push(`진료비 비중이 가장 큰 질환군은 <b>${gt[0].g.name}</b>(${pct(gt[0].v, amt)})이고, 환자 ${nf(pts.size)}명이 건당 평균 ${won(amt / f.length)}을 씁니다.`);
+      if (sidoE.length > 1) ins2.push(`환자 거주지 상위 2개(<b>${sidoE[0].name}</b>·<b>${sidoE[1].name}</b>)가 ${st.m === "amt" ? "진료비" : "청구 건수"}의 ${pct(tot(sidoE[0].o) + tot(sidoE[1].o), st.m === "amt" ? amt : f.length)}를 차지합니다.`);
+      if (ingE.length) ins2.push(`처방 금액 1위 성분은 <b>${esc(ingE[0].i.name)}</b>(${esc(ingE[0].i.clsName)})로 처방 금액의 ${pct(ingE[0].amt, rxAmt)}를 차지합니다.`);
+      ins2.push(`기관 ${nf(instE.length)}곳 중 상위 10곳이 진료비의 ${pct(topAmt, amt)}를 차지합니다.`);
+    } else ins2.push("조건에 맞는 청구가 없습니다. 필터를 조정해 보세요.");
+    $("insights").innerHTML = ins2.map(t => `<li>${t}</li>`).join("");
+  }
+
+  render();
+  let rt; new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(drawTrend, 60); }).observe($("trend"));
+})();
+</script>
