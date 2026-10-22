@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-python build.py                                  # template.html + Supabase URL/anon key -> dist/dashboard.html, preview.html
+python build.py                                  # template.html + Supabase URL/anon key -> dist/dashboard.html, preview.html, 루트 index.html(GitHub Pages: main 브랜치 / , https://genie0320.github.io/OZ_dashboard/). 배포는 build 후 index.html 커밋·push
 python tools/load_supabase.py                    # data/*.csv -> Supabase 적재 (재실행 가능, 전체 삭제 후 재적재)
 npx supabase db push                             # supabase/migrations 적용 (link 완료, project ref: hdjfvciwzkbeynkdxiwh)
 python -m http.server 8765 --directory dist      # 미리보기 (.claude/launch.json 의 "dashboard")

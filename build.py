@@ -1,4 +1,4 @@
-"""template.html -> dist/dashboard.html, preview.html, docs/index.html (GitHub Pages). 데이터는 브라우저가 Supabase 에서 직접 읽는다.
+"""template.html -> dist/dashboard.html, preview.html, index.html (GitHub Pages, main /). 데이터는 브라우저가 Supabase 에서 직접 읽는다.
 
 URL/anon key 는 env(SUPABASE_URL, SUPABASE_ANON_KEY)가 없으면 supabase CLI(link 완료 상태)에서 받는다.
 CSV -> Supabase 적재는 tools/load_supabase.py. 구 정적 빌드는 tools/build_static_legacy.py.
@@ -22,7 +22,6 @@ url, key = config()
 out = (ROOT / "template.html").read_text(encoding="utf-8").replace("__SUPABASE_URL__", url).replace("__SUPABASE_ANON_KEY__", key)
 (ROOT / "dist").mkdir(exist_ok=True)
 (ROOT / "dist" / "dashboard.html").write_text(out, encoding="utf-8")
-(ROOT / "docs").mkdir(exist_ok=True)
-(ROOT / "docs" / "index.html").write_text(out, encoding="utf-8")  # GitHub Pages (main /docs)
+(ROOT / "index.html").write_text(out, encoding="utf-8")  # GitHub Pages (main /)
 (ROOT / "dist" / "preview.html").write_text(out, encoding="utf-8")
 print("built dist/dashboard.html", len(out) // 1024, "KB ->", url)
